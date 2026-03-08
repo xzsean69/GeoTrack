@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+urban-mobility-stockholm/data/*.parquet
+*.joblib
+*.pkl
