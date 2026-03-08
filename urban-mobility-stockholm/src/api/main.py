@@ -6,7 +6,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import networkx as nx
-from pathlib import Path
+from contextlib import asynccontextmanager
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -27,8 +27,6 @@ from src.optimization.route_optimizer import (
     suggest_alternative_routes,
 )
 
-app = FastAPI(title="Urban Mobility Stockholm API", version="1.0.0")
-
 # ──────────────────────────────────────────────
 # In-memory state (populated at startup)
 # ──────────────────────────────────────────────
@@ -37,8 +35,8 @@ _feature_cols: list[str] = []
 _graph: nx.DiGraph = nx.DiGraph()
 
 
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global _model, _feature_cols, _graph
     # Train a quick model on synthetic data
     df = generate_synthetic_demand()
@@ -60,6 +58,10 @@ def startup_event():
         "stop_sequence": list(range(5)),
     })
     _graph = build_transit_graph(stops, stop_times)
+    yield
+
+
+app = FastAPI(title="Urban Mobility Stockholm API", version="1.0.0", lifespan=lifespan)
 
 
 # ──────────────────────────────────────────────

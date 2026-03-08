@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+data/*.parquet
+models/
+*.joblib
+*.pkl
+.env

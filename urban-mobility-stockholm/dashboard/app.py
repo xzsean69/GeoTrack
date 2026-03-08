@@ -167,6 +167,7 @@ with tab3:
 
     st.markdown("---")
     st.subheader("Congestion Analysis")
+    st.caption("ℹ️ Congestion loads shown below are synthetic demo values for illustration purposes.")
     # Assign mock loads
     for u, v in G.edges():
         G[u][v]["load"] = np.random.uniform(0, 1000)

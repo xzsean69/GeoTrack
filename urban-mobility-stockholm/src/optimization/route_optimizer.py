@@ -2,6 +2,7 @@
 Route optimization engine.
 Detect congested edges in a transport graph and propose alternative routes.
 """
+import itertools
 import pandas as pd
 import networkx as nx
 from typing import Optional
@@ -58,8 +59,8 @@ def suggest_alternative_routes(
         G_temp.remove_edge(u, v)
         try:
             paths = list(
-                nx.shortest_simple_paths(G_temp, u, v, weight="weight")
-            )[:k]
+                itertools.islice(nx.shortest_simple_paths(G_temp, u, v, weight="weight"), k)
+            )
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             paths = []
         alternatives[(u, v)] = paths
