@@ -1,6 +1,11 @@
 """
-Interactive Streamlit dashboard with map visualizations for urban mobility.
-Enhanced UI with metro schematic map, demand analytics, and route optimization.
+GeoTrack – Urban Mobility Dashboard for Stockholm.
+
+This dashboard lets you:
+  • Visualise the simulated public-transit network on an interactive map
+  • Forecast passenger demand with an XGBoost model
+  • Plan optimal routes between any two stops
+  • Identify congested segments in real time
 """
 import numpy as np
 import pandas as pd
@@ -25,11 +30,24 @@ from src.optimization.route_optimizer import identify_congested_edges
 # Page config
 # ──────────────────────────────────────────────
 st.set_page_config(
-    page_title="Urban Mobility Stockholm",
+    page_title="GeoTrack – Urban Mobility Stockholm",
     page_icon="🚇",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ──────────────────────────────────────────────
+# Session-state initialisation
+# ──────────────────────────────────────────────
+_SESSION_DEFAULTS = {
+    "route_path":   None,
+    "route_length": None,
+    "route_src":    None,
+    "route_dst":    None,
+}
+for _key, _val in _SESSION_DEFAULTS.items():
+    if _key not in st.session_state:
+        st.session_state[_key] = _val
 
 # ──────────────────────────────────────────────
 # CSS – polished, clean design
@@ -47,8 +65,21 @@ st.markdown("""
         border-radius: 12px;
         margin-bottom: 1.2rem;
     }
-    .app-header .title  { font-size: 1.55rem; font-weight: 700; margin: 0; }
+    .app-header .title    { font-size: 1.55rem; font-weight: 700; margin: 0; }
     .app-header .subtitle { font-size: 0.83rem; opacity: 0.82; margin-top: 0.25rem; }
+    .app-header .tagline  { font-size: 0.78rem; opacity: 0.68; margin-top: 0.15rem; }
+
+    /* Onboarding info card */
+    .onboard-card {
+        background: #eef6ff;
+        border: 1px solid #b8d4f5;
+        border-radius: 10px;
+        padding: 0.8rem 1.1rem;
+        font-size: 0.86rem;
+        line-height: 1.7;
+        margin-bottom: 0.8rem;
+    }
+    .onboard-card b { color: #1a2f4e; }
 
     /* Compact tab bar */
     .stTabs [data-baseweb="tab-list"] {
@@ -100,6 +131,9 @@ st.markdown("""
 # ──────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚙️ Configuration")
+    st.caption(
+        "Adjust the simulation parameters below. Changes apply to all tabs immediately."
+    )
 
     with st.expander("🗺️ Map Options", expanded=True):
         map_style = st.selectbox(
@@ -108,21 +142,36 @@ with st.sidebar:
             index=0,
             help="Background style for the geographic map",
         )
-        show_heatmap = st.checkbox("Demand Heatmap", value=True)
-        show_routes  = st.checkbox("Transit Routes",  value=True)
+        show_heatmap = st.checkbox(
+            "Demand Heatmap",
+            value=True,
+            help="Overlay a colour-coded heatmap showing relative passenger volumes at each stop",
+        )
+        show_routes  = st.checkbox(
+            "Transit Routes",
+            value=True,
+            help="Draw route lines between connected stops on the geographic map",
+        )
 
     with st.expander("📊 Simulation", expanded=True):
-        n_zones = st.slider("Number of Stops", 5, 30, 15,
-                            help="Total stops in the simulated network")
-        n_hours = st.slider("Simulation Hours", 24, 336, 168,
-                            help="Historical demand window to simulate")
-        congestion_threshold = st.slider("Congestion Threshold", 100, 2000, 500,
-                                         help="Passengers/hr above which a segment is congested")
+        n_zones = st.slider(
+            "Number of Stops", 5, 30, 15,
+            help="Total number of transit stops in the simulated Stockholm network",
+        )
+        n_hours = st.slider(
+            "Simulation Hours", 24, 336, 168,
+            help="Length of the synthetic demand history used for ML training (1 week = 168 h)",
+        )
+        congestion_threshold = st.slider(
+            "Congestion Threshold (pax/hr)", 100, 2000, 500,
+            help="Segments with load above this value are flagged as congested in the Route Planner tab",
+        )
 
     st.markdown("---")
     st.markdown(
-        "<small>🚇 <b>Urban Mobility Stockholm</b><br>"
-        "Streamlit · Folium · Plotly · XGBoost</small>",
+        "<small>🚇 <b>GeoTrack – Urban Mobility Stockholm</b><br>"
+        "Built with Streamlit · Folium · Plotly · XGBoost<br>"
+        "<i>All data is synthetic and for demonstration only.</i></small>",
         unsafe_allow_html=True,
     )
 
@@ -364,11 +413,16 @@ def create_metro_schematic(stop_times_df: pd.DataFrame, stops_df: pd.DataFrame) 
 # ──────────────────────────────────────────────
 st.markdown("""
 <div class="app-header">
-  <div class="title">🚇 Urban Mobility Stockholm</div>
+  <div class="title">🚇 GeoTrack – Urban Mobility Stockholm</div>
   <div class="subtitle">
-    Real-time transit analytics &nbsp;·&nbsp;
-    Demand forecasting &nbsp;·&nbsp;
-    Route optimization
+    Interactive transit analytics &nbsp;·&nbsp;
+    Passenger demand forecasting &nbsp;·&nbsp;
+    Shortest-path route planning &nbsp;·&nbsp;
+    Congestion detection
+  </div>
+  <div class="tagline">
+    Explore the simulated Stockholm transit network: visualise stops &amp; routes on a live map,
+    predict demand with machine learning, plan optimal journeys, and identify congested segments.
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -392,10 +446,10 @@ st.divider()
 # Main tabs
 # ──────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs([
-    "🗺️ Live Map & Metro View",
+    "🗺️ Live Map & Network",
     "📊 Demand Analytics",
-    "🔀 Route Planner",
-    "📈 Network Stats",
+    "🔀 Plan My Route",
+    "📈 Network Statistics",
 ])
 
 # ══════════════════════════════════════════════
@@ -403,6 +457,16 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # ══════════════════════════════════════════════
 with tab1:
     G, stops_df, stop_times = get_graph(n_zones)
+
+    st.markdown(
+        '<div class="onboard-card">'
+        "📌 <b>How to use this tab:</b> Switch between the live geographic map and the "
+        "schematic metro view using the toggle below. On the geographic map you can "
+        "<b>zoom, pan</b>, and <b>click any stop marker</b> to see its details. "
+        "Toggle the heatmap and route overlays in the sidebar."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     view_mode = st.radio(
         "Map view",
@@ -484,8 +548,13 @@ with tab1:
                     icon=folium.Icon(color="blue", icon="info-sign"),
                 ).add_to(marker_cluster)
 
-            map_data = st_folium(m, width=None, height=500,
-                                 returned_objects=["last_object_clicked"])
+            map_data = st_folium(
+                m,
+                width=None,
+                height=500,
+                returned_objects=["last_object_clicked"],
+                key=f"geo_map_{n_zones}_{map_style}_{show_heatmap}_{show_routes}",
+            )
 
         with col2:
             st.markdown("#### 📍 Quick Info")
@@ -521,6 +590,16 @@ with tab1:
 # ══════════════════════════════════════════════
 with tab2:
     st.markdown("### 📊 Passenger Demand Analytics")
+    st.markdown(
+        '<div class="onboard-card">'
+        "📌 <b>How to use this tab:</b> Explore synthetic passenger demand generated for "
+        "the simulated network. Charts update automatically when you change the "
+        "<b>Number of Stops</b> or <b>Simulation Hours</b> sliders in the sidebar. "
+        "Scroll down to use the <b>ML Demand Predictor</b> – enter a time slot and click "
+        "<em>Predict</em> to get a forecast."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     demand_df = get_demand_data(n_zones, n_hours).copy()
     demand_df["hour"]        = pd.to_datetime(demand_df["timestamp"]).dt.hour
@@ -622,7 +701,18 @@ with tab2:
 # Tab 3 – Route Planner
 # ══════════════════════════════════════════════
 with tab3:
-    st.markdown("### 🔀 Route Planner")
+    st.markdown("### 🔀 Plan My Route")
+    st.markdown(
+        '<div class="onboard-card">'
+        "📌 <b>How to use this tab:</b> Choose an <b>origin</b> and a <b>destination</b> "
+        "stop from the dropdowns on the left, then click <em>Find Optimal Route</em>. "
+        "The shortest path (by travel time) is highlighted on the map and shown as "
+        "step-by-step directions below. Your last result is kept visible until you "
+        "search for a new route. Scroll down to view the <b>Congestion Analysis</b> "
+        "for the current network."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     G, stops_df, _ = get_graph(n_zones)
 
@@ -634,21 +724,35 @@ with tab3:
             f"{row['stop_name']} ({row['stop_id']})": row["stop_id"]
             for _, row in stops_df.iterrows()
         }
-        source_display = st.selectbox("🟢 From", list(stop_options.keys()), index=0)
-        target_display = st.selectbox("🔴 To",   list(stop_options.keys()),
+        source_display = st.selectbox("🟢 From (origin stop)", list(stop_options.keys()), index=0)
+        target_display = st.selectbox("🔴 To (destination stop)", list(stop_options.keys()),
                                       index=min(4, len(stop_options) - 1))
         source = stop_options[source_display]
         target = stop_options[target_display]
         find_route = st.button("🔍 Find Optimal Route", type="primary",
                                use_container_width=True)
 
-    with col2:
         if find_route:
             path, length = compute_shortest_path(G, source, target)
+            # Persist results in session state so they survive re-renders
+            st.session_state.route_path   = path
+            st.session_state.route_length = length
+            st.session_state.route_src    = source_display
+            st.session_state.route_dst    = target_display
 
+    with col2:
+        path   = st.session_state.route_path
+        length = st.session_state.route_length
+
+        if path is not None:
             if path:
+                route_label = (
+                    f"**{st.session_state.route_src}** → "
+                    f"**{st.session_state.route_dst}**"
+                )
                 st.success(
-                    f"✅ Route found · **{len(path) - 1} stops** · "
+                    f"✅ Route found · {route_label} · "
+                    f"**{len(path) - 1} stops** · "
                     f"{length:.1f} min estimated travel time"
                 )
 
@@ -675,7 +779,13 @@ with tab3:
                         icon=icon,
                     ).add_to(route_map)
 
-                st_folium(route_map, width=None, height=380)
+                st_folium(
+                    route_map,
+                    width=None,
+                    height=380,
+                    returned_objects=[],
+                    key="route_map_" + "_".join(str(s) for s in path),
+                )
 
                 st.markdown("#### 🗺️ Step-by-step Directions")
                 route_names = [G.nodes[s].get("name", s) for s in path]
@@ -688,7 +798,7 @@ with tab3:
             else:
                 st.error("❌ No route found between the selected stops.")
         else:
-            st.info("👆 Select origin & destination, then click **Find Optimal Route**")
+            st.info("👆 Select an origin and destination on the left, then click **Find Optimal Route**.")
             preview_map = folium.Map(
                 location=[stops_df["stop_lat"].mean(), stops_df["stop_lon"].mean()],
                 zoom_start=13, tiles=get_map_tiles(map_style),
@@ -697,9 +807,16 @@ with tab3:
                 folium.CircleMarker(
                     [row["stop_lat"], row["stop_lon"]],
                     radius=5, color="#0077b6", fill=True,
+                    tooltip=row["stop_name"],
                     popup=row["stop_name"],
                 ).add_to(preview_map)
-            st_folium(preview_map, width=None, height=380)
+            st_folium(
+                preview_map,
+                width=None,
+                height=380,
+                returned_objects=[],
+                key=f"route_preview_{n_zones}",
+            )
 
     # Congestion analysis
     st.markdown("---")
@@ -748,6 +865,17 @@ with tab3:
 # ══════════════════════════════════════════════
 with tab4:
     st.markdown("### 📈 Network Statistics")
+    st.markdown(
+        '<div class="onboard-card">'
+        "📌 <b>How to use this tab:</b> View graph-level metrics for the simulated "
+        "transit network. The <em>Stop Connectivity Distribution</em> histogram shows "
+        "how many connections each stop has. The <em>Network Graph</em> plots each stop "
+        "geographically – larger, darker nodes have more connections. "
+        "Use the slider in the sidebar to change the number of stops and see how the "
+        "network topology evolves."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     G, stops_df, _ = get_graph(n_zones)
     stats = get_network_stats(G)
@@ -824,8 +952,9 @@ with tab4:
 st.markdown("---")
 st.markdown(
     '<div style="text-align:center;color:#aaa;font-size:0.78rem;padding:0.4rem 0">'
-    "🚇 Urban Mobility Stockholm &nbsp;·&nbsp; "
-    "Streamlit · Folium · Plotly · XGBoost"
+    "🚇 GeoTrack – Urban Mobility Stockholm &nbsp;·&nbsp; "
+    "Streamlit · Folium · Plotly · XGBoost &nbsp;·&nbsp; "
+    "<i>All data is synthetic and for demonstration purposes only.</i>"
     "</div>",
     unsafe_allow_html=True,
 )
