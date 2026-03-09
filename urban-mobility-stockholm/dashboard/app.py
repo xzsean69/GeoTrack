@@ -1182,7 +1182,7 @@ with tab1:
                 width=None,
                 height=560,
                 returned_objects=[],
-                key=f"mp_map_{mp_hour}_{mp_dow}_{mp_month}_{mp_temp}_{mp_rain}_{mp_wind}",
+                key=f"mp_map_{mp_hour}_{mp_dow}_{mp_month}_{round(mp_temp, 1)}_{round(mp_rain, 1)}_{round(mp_wind, 1)}",
             )
 
         # Summary table below the map
