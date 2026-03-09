@@ -3,7 +3,8 @@ GeoTrack – Urban Mobility Dashboard for Stockholm.
 
 This dashboard lets you:
   • Visualise the simulated public-transit network on an interactive map
-  • Forecast passenger demand with an XGBoost model
+  • Explore demand-zone grid with colour-coded demand intensity
+  • Forecast passenger demand with an XGBoost model (weather + POI features)
   • Plan optimal routes between any two stops
   • Identify congested segments in real time
 """
@@ -21,10 +22,15 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.ml.demand_predictor import generate_synthetic_demand, engineer_features, train_demand_model
+from src.ml.demand_predictor import (
+    generate_synthetic_demand, engineer_features, train_demand_model,
+    ALL_FEATURE_COLS, BASE_FEATURE_COLS, WEATHER_FEATURE_COLS, POI_FEATURE_COLS,
+)
 from src.geospatial.geo_processor import create_grid_zones, haversine_distance
 from src.network.graph_builder import build_transit_graph, get_network_stats, compute_shortest_path
 from src.optimization.route_optimizer import identify_congested_edges
+from src.data.smhi_weather import generate_synthetic_weather
+from src.data.poi_data import get_poi_dataframe, add_poi_features, compute_poi_scores
 
 # ──────────────────────────────────────────────
 # Page config
@@ -179,18 +185,26 @@ with st.sidebar:
 # Cached data helpers
 # ──────────────────────────────────────────────
 @st.cache_data
+def get_weather_data(n_hours):
+    """Return synthetic SMHI-style weather data for the simulation period."""
+    return generate_synthetic_weather(n_hours=n_hours)
+
+
+@st.cache_data
 def get_demand_data(n_zones, n_hours):
-    return generate_synthetic_demand(n_zones=n_zones, n_hours=n_hours)
+    weather_df = get_weather_data(n_hours)
+    return generate_synthetic_demand(
+        n_zones=n_zones, n_hours=n_hours, weather_df=weather_df
+    )
 
 
 @st.cache_data
 def get_trained_model(n_zones, n_hours):
+    weather_df = get_weather_data(n_hours)
     df = get_demand_data(n_zones, n_hours)
-    df_feat = engineer_features(df)
-    feat_cols = ["hour", "day_of_week", "month", "is_weekend",
-                 "demand_lag_1", "demand_lag_2", "demand_lag_3", "demand_lag_24"]
-    model, metrics = train_demand_model(df_feat, feat_cols)
-    return model, metrics, feat_cols
+    df_feat = engineer_features(df, weather_df=weather_df)
+    model, metrics = train_demand_model(df_feat, ALL_FEATURE_COLS)
+    return model, metrics, ALL_FEATURE_COLS
 
 
 @st.cache_data
@@ -233,6 +247,24 @@ def get_stops_df(n_zones):
             })
 
     return pd.DataFrame(stops)
+
+
+@st.cache_data
+def get_stops_with_poi(n_zones):
+    """Return stops DataFrame with appended POI proximity scores."""
+    stops = get_stops_df(n_zones)
+    return add_poi_features(stops)
+
+
+@st.cache_data
+def get_stop_poi_scores(n_zones) -> dict[str, dict[str, float]]:
+    """Return per-stop POI scores keyed by zone_id (zone_0 … zone_{n-1})."""
+    stops = get_stops_df(n_zones)
+    result: dict[str, dict[str, float]] = {}
+    for i, row in stops.iterrows():
+        zone_id = f"zone_{i}"
+        result[zone_id] = compute_poi_scores(row["stop_lat"], row["stop_lon"])
+    return result
 
 
 @st.cache_data
@@ -422,7 +454,8 @@ st.markdown("""
   </div>
   <div class="tagline">
     Explore the simulated Stockholm transit network: visualise stops &amp; routes on a live map,
-    predict demand with machine learning, plan optimal journeys, and identify congested segments.
+    view the demand-zone grid, predict demand with ML (weather + POI features),
+    plan optimal journeys, and identify congested segments.
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -453,16 +486,18 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ══════════════════════════════════════════════
-# Tab 1 – Map  (geographic  OR  metro schematic)
+# Tab 1 – Map  (geographic  OR  metro schematic  OR  grid demand zones)
 # ══════════════════════════════════════════════
 with tab1:
     G, stops_df, stop_times = get_graph(n_zones)
 
     st.markdown(
         '<div class="onboard-card">'
-        "📌 <b>How to use this tab:</b> Switch between the live geographic map and the "
-        "schematic metro view using the toggle below. On the geographic map you can "
-        "<b>zoom, pan</b>, and <b>click any stop marker</b> to see its details. "
+        "📌 <b>How to use this tab:</b> Switch between the live geographic map, the "
+        "schematic metro view, and the <b>Grid Demand Zones</b> view using the toggle "
+        "below. The Grid view shows Stockholm divided into a colour-coded grid where "
+        "each cell's colour reflects the aggregated passenger demand – from cool blue "
+        "(low demand) through yellow to red (high demand). "
         "Toggle the heatmap and route overlays in the sidebar."
         "</div>",
         unsafe_allow_html=True,
@@ -470,7 +505,7 @@ with tab1:
 
     view_mode = st.radio(
         "Map view",
-        ["📍 Geographic Map", "🚇 Metro Schematic"],
+        ["📍 Geographic Map", "🚇 Metro Schematic", "🟦 Grid Demand Zones"],
         horizontal=True,
         label_visibility="collapsed",
     )
@@ -492,6 +527,176 @@ with tab1:
             .rename(columns={"trip_id": "Line", "stop_id": "Unique Stops"})
         )
         st.dataframe(line_summary, use_container_width=True, hide_index=True)
+
+    elif view_mode == "🟦 Grid Demand Zones":
+        # ── Grid Demand Zones view ────────────────
+        st.markdown("#### 🟦 Demand Zone Grid – Stockholm")
+        st.caption(
+            "Each cell represents a geographic grid zone. Colour encodes the average "
+            "passenger demand aggregated for all stops within that cell. "
+            "Blue = low demand · Yellow = medium · Red = high demand."
+        )
+
+        grid_cols = st.columns([3, 1])
+        with grid_cols[1]:
+            grid_rows = st.slider("Grid rows",    3, 12, 6, key="grid_rows")
+            grid_ncols = st.slider("Grid columns", 3, 12, 6, key="grid_ncols")
+
+        # Build grid zones around Stockholm stop bounding box
+        pad = 0.015  # degree padding
+        minx = stops_df["stop_lon"].min() - pad
+        maxx = stops_df["stop_lon"].max() + pad
+        miny = stops_df["stop_lat"].min() - pad
+        maxy = stops_df["stop_lat"].max() + pad
+
+        grid_gdf = create_grid_zones(
+            bounds=(minx, miny, maxx, maxy),
+            n_rows=grid_rows,
+            n_cols=grid_ncols,
+        )
+
+        # Average demand per zone from demand data
+        demand_df_grid = get_demand_data(n_zones, n_hours)
+        zone_demand = demand_df_grid.groupby("zone_id")["demand"].mean().to_dict()
+
+        # Assign demand to grid cells by counting stops inside each cell
+        # and summing their zone demand scores
+        import geopandas as gpd
+        from shapely.geometry import Point as SPoint
+
+        stops_gdf = gpd.GeoDataFrame(
+            stops_df.reset_index(drop=True),
+            geometry=[SPoint(r["stop_lon"], r["stop_lat"]) for _, r in stops_df.iterrows()],
+            crs="EPSG:4326",
+        )
+        # Add per-stop average demand using the demand data zone mapping
+        stops_gdf["demand_val"] = [
+            zone_demand.get(f"zone_{i}", 0.0) for i in range(len(stops_gdf))
+        ]
+        joined = gpd.sjoin(stops_gdf, grid_gdf, how="left", predicate="within")
+        # geopandas renames the right-side 'zone_id' to 'zone_id_right' only when
+        # there is a naming conflict; use whichever column name is present.
+        zone_id_col = "zone_id" if "zone_id" in joined.columns else "zone_id_right"
+        cell_demand = joined.groupby(zone_id_col)["demand_val"].mean()
+        grid_gdf["demand"] = grid_gdf["zone_id"].map(cell_demand).fillna(0)
+
+        # Normalise for colour scale
+        d_min = grid_gdf["demand"].min()
+        d_max = grid_gdf["demand"].max()
+        grid_gdf["demand_norm"] = (
+            (grid_gdf["demand"] - d_min) / max(d_max - d_min, 1)
+        )
+
+        def _demand_color(norm_val: float) -> str:
+            """Map normalised demand (0–1) to a hex colour (blue→yellow→red)."""
+            if norm_val <= 0.5:
+                t = norm_val * 2          # 0→1
+                r = int(0   + t * 255)
+                g = int(0   + t * 255)
+                b = int(200 - t * 200)
+            else:
+                t = (norm_val - 0.5) * 2  # 0→1
+                r = 255
+                g = int(255 - t * 255)
+                b = 0
+            return f"#{r:02x}{g:02x}{b:02x}"
+
+        # Build Folium map with coloured grid rectangles
+        with grid_cols[0]:
+            center_lat = (miny + maxy) / 2
+            center_lon = (minx + maxx) / 2
+            gm = folium.Map(
+                location=[center_lat, center_lon],
+                zoom_start=12,
+                tiles=get_map_tiles(map_style),
+            )
+
+            for _, cell in grid_gdf.iterrows():
+                geom = cell["geometry"]
+                b = geom.bounds           # (minx, miny, maxx, maxy)
+                norm_val = float(cell["demand_norm"])
+                color = _demand_color(norm_val)
+                demand_val = float(cell["demand"])
+                zone_label = cell["zone_id"]
+
+                folium.Rectangle(
+                    bounds=[[b[1], b[0]], [b[3], b[2]]],
+                    color="#333333",
+                    weight=0.5,
+                    fill=True,
+                    fill_color=color,
+                    fill_opacity=0.55,
+                    tooltip=(
+                        f"<b>{zone_label}</b><br>"
+                        f"Avg demand: {demand_val:.0f} pax/hr<br>"
+                        f"Intensity: {norm_val:.0%}"
+                    ),
+                ).add_to(gm)
+
+            # Add stop markers on top
+            for _, row in stops_df.iterrows():
+                folium.CircleMarker(
+                    [row["stop_lat"], row["stop_lon"]],
+                    radius=5,
+                    color="#1a2f4e",
+                    fill=True,
+                    fill_color="white",
+                    fill_opacity=0.9,
+                    weight=2,
+                    tooltip=row["stop_name"],
+                ).add_to(gm)
+
+            st_folium(
+                gm,
+                width=None,
+                height=500,
+                returned_objects=[],
+                key=f"grid_map_{n_zones}_{grid_rows}_{grid_ncols}_{map_style}",
+            )
+
+        with grid_cols[1]:
+            st.markdown("#### 🎨 Demand Scale")
+            st.markdown(
+                '<div class="legend-card">'
+                '<span style="color:#0000c8;font-size:1.2em">■</span> Very low<br>'
+                '<span style="color:#7f7f00;font-size:1.2em">■</span> Medium<br>'
+                '<span style="color:#ff8000;font-size:1.2em">■</span> High<br>'
+                '<span style="color:#ff0000;font-size:1.2em">■</span> Peak demand<br>'
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("---")
+            st.metric("Grid cells", grid_rows * grid_ncols)
+            st.metric("Cells with stops", int((grid_gdf["demand"] > 0).sum()))
+            st.metric("Peak demand", f"{d_max:.0f} pax/hr")
+            st.metric("Avg demand",  f"{grid_gdf['demand'][grid_gdf['demand'] > 0].mean():.0f} pax/hr"
+                      if (grid_gdf["demand"] > 0).any() else "—")
+
+        # Zone demand bar chart
+        st.markdown("#### 📊 Demand by Grid Zone (top 20 populated cells)")
+        top_cells = (
+            grid_gdf[grid_gdf["demand"] > 0]
+            .sort_values("demand", ascending=False)
+            .head(20)
+        )
+        if not top_cells.empty:
+            fig_grid = px.bar(
+                top_cells,
+                x="zone_id",
+                y="demand",
+                color="demand",
+                color_continuous_scale="RdYlBu_r",
+                labels={"zone_id": "Grid Zone", "demand": "Avg Demand (pax/hr)"},
+                title="Average Passenger Demand per Grid Zone",
+            )
+            fig_grid.update_layout(
+                coloraxis_showscale=False,
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                margin=dict(t=40, b=20),
+                xaxis_tickangle=-45,
+            )
+            st.plotly_chart(fig_grid, use_container_width=True)
 
     else:
         # ── Geographic Folium map ────────────────
@@ -593,10 +798,11 @@ with tab2:
     st.markdown(
         '<div class="onboard-card">'
         "📌 <b>How to use this tab:</b> Explore synthetic passenger demand generated for "
-        "the simulated network. Charts update automatically when you change the "
+        "the simulated network, modulated by <b>SMHI weather</b> and <b>POI proximity</b>. "
+        "Charts update automatically when you change the "
         "<b>Number of Stops</b> or <b>Simulation Hours</b> sliders in the sidebar. "
-        "Scroll down to use the <b>ML Demand Predictor</b> – enter a time slot and click "
-        "<em>Predict</em> to get a forecast."
+        "Scroll down to use the <b>ML Demand Predictor</b> – enter time, weather, and POI "
+        "context and click <em>Predict</em> to get a forecast."
         "</div>",
         unsafe_allow_html=True,
     )
@@ -667,9 +873,209 @@ with tab2:
     fig3.update_layout(height=350, margin=dict(t=10, b=20))
     st.plotly_chart(fig3, use_container_width=True)
 
+    # ── Weather (SMHI) section ─────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 🌦️ SMHI Weather Influence on Demand")
+    st.markdown(
+        '<div class="onboard-card">'
+        "Weather data sourced from the <b>SMHI (Swedish Meteorological and "
+        "Hydrological Institute)</b> open data API. "
+        "Cold temperatures, rain, and strong wind all increase transit demand "
+        "(more people choose public transport over walking/cycling). "
+        "The <em>weather demand factor</em> is a composite multiplier applied "
+        "to the base demand signal."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    weather_df_tab = get_weather_data(n_hours).copy()
+    weather_df_tab["hour"] = weather_df_tab["timestamp"].dt.hour
+    weather_df_tab["date"] = weather_df_tab["timestamp"].dt.date
+
+    w1, w2, w3, w4 = st.columns(4)
+    w1.metric("🌡️ Avg Temp",    f"{weather_df_tab['temperature'].mean():.1f} °C")
+    w2.metric("🌧️ Rainy Hours", int(weather_df_tab["is_rainy"].sum()))
+    w3.metric("💨 Avg Wind",    f"{weather_df_tab['wind_speed'].mean():.1f} m/s")
+    w4.metric("📈 Avg Factor",  f"{weather_df_tab['weather_demand_factor'].mean():.3f}")
+
+    wcol1, wcol2 = st.columns(2)
+
+    with wcol1:
+        fig_temp = px.line(
+            weather_df_tab.head(72),  # first 3 days
+            x="timestamp", y="temperature",
+            title="🌡️ Temperature (first 72 h)",
+            labels={"timestamp": "Time", "temperature": "°C"},
+            color_discrete_sequence=["#e63946"],
+        )
+        fig_temp.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(t=40, b=20),
+        )
+        st.plotly_chart(fig_temp, use_container_width=True)
+
+    with wcol2:
+        fig_factor = px.area(
+            weather_df_tab.head(72),
+            x="timestamp", y="weather_demand_factor",
+            title="📈 Weather Demand Factor (first 72 h)",
+            labels={"timestamp": "Time", "weather_demand_factor": "Factor"},
+            color_discrete_sequence=["#0077b6"],
+        )
+        fig_factor.add_hline(y=1.0, line_dash="dot", line_color="#888888",
+                             annotation_text="Baseline (1.0)")
+        fig_factor.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(t=40, b=20),
+        )
+        st.plotly_chart(fig_factor, use_container_width=True)
+
+    # Precipitation bar chart
+    precip_daily = (
+        weather_df_tab.groupby("date")["precipitation"].sum().reset_index()
+    )
+    precip_daily.columns = ["date", "precip_mm"]
+    fig_precip = px.bar(
+        precip_daily,
+        x="date", y="precip_mm",
+        title="🌧️ Daily Precipitation (mm)",
+        labels={"date": "Date", "precip_mm": "Precipitation (mm)"},
+        color="precip_mm",
+        color_continuous_scale="Blues",
+    )
+    fig_precip.update_layout(
+        coloraxis_showscale=False,
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        margin=dict(t=40, b=20),
+    )
+    st.plotly_chart(fig_precip, use_container_width=True)
+
+    # ── POI section ────────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 📍 Points of Interest (POI) Influence")
+    st.markdown(
+        '<div class="onboard-card">'
+        "POI proximity scores measure how close each transit stop is to key "
+        "demand generators: <b>offices</b> (morning/evening peaks), "
+        "<b>universities</b> (off-peak demand), <b>hospitals</b> (all-day), "
+        "<b>shopping centres</b> (afternoon peaks), "
+        "<b>tourist attractions</b> (weekend daytime), and "
+        "<b>transit hubs</b> (transfer demand multiplier). "
+        "Higher scores → more demand. These scores are used as features in the ML model."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    poi_df = get_poi_dataframe()
+    stops_poi_df = get_stops_with_poi(n_zones)
+    poi_cols = [c for c in stops_poi_df.columns if c.startswith("poi_")]
+
+    # Map of POI locations
+    pcol1, pcol2 = st.columns([2, 1])
+    with pcol1:
+        poi_map = folium.Map(
+            location=[59.3293, 18.0686],
+            zoom_start=11,
+            tiles=get_map_tiles(map_style),
+        )
+        _poi_cat_colors = {
+            "office":      "#0077b6",
+            "university":  "#2dc653",
+            "hospital":    "#e63946",
+            "shopping":    "#f4a261",
+            "tourist":     "#9d4edd",
+            "transit_hub": "#e76f51",
+        }
+        for _, poi_row in poi_df.iterrows():
+            cat   = poi_row["category"]
+            color = _poi_cat_colors.get(cat, "#888888")
+            folium.CircleMarker(
+                [poi_row["lat"], poi_row["lon"]],
+                radius=6 + poi_row["weight"],
+                color=color,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.7,
+                tooltip=(
+                    f"<b>{poi_row['name']}</b><br>"
+                    f"Category: {cat}<br>"
+                    f"Weight: {poi_row['weight']}"
+                ),
+            ).add_to(poi_map)
+        # Add stops as small markers
+        for _, row in stops_poi_df.iterrows():
+            folium.CircleMarker(
+                [row["stop_lat"], row["stop_lon"]],
+                radius=4,
+                color="#1a2f4e",
+                fill=True, fill_color="white", fill_opacity=0.9, weight=2,
+                tooltip=row["stop_name"],
+            ).add_to(poi_map)
+        st_folium(poi_map, width=None, height=420, returned_objects=[],
+                  key=f"poi_map_{n_zones}_{map_style}")
+
+    with pcol2:
+        st.markdown("#### 🎨 POI Legend")
+        st.markdown(
+            '<div class="legend-card">'
+            '<span style="color:#0077b6;font-size:1.1em">●</span> Office<br>'
+            '<span style="color:#2dc653;font-size:1.1em">●</span> University<br>'
+            '<span style="color:#e63946;font-size:1.1em">●</span> Hospital<br>'
+            '<span style="color:#f4a261;font-size:1.1em">●</span> Shopping<br>'
+            '<span style="color:#9d4edd;font-size:1.1em">●</span> Tourist<br>'
+            '<span style="color:#e76f51;font-size:1.1em">●</span> Transit Hub<br>'
+            "<hr style='margin:6px 0'>"
+            "⬜ Transit stop"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("---")
+        st.metric("Total POIs", len(poi_df))
+        for cat, color in _poi_cat_colors.items():
+            cnt = int((poi_df["category"] == cat).sum())
+            st.markdown(
+                f'<span style="color:{color}">■</span> {cat.title()}: **{cnt}**',
+                unsafe_allow_html=True,
+            )
+
+    # POI score radar/bar chart per stop
+    if not stops_poi_df.empty and poi_cols:
+        st.markdown("#### 📊 POI Proximity Scores per Stop")
+        poi_melt = stops_poi_df[["stop_name"] + poi_cols].melt(
+            id_vars="stop_name",
+            var_name="POI Category",
+            value_name="Score",
+        )
+        poi_melt["POI Category"] = poi_melt["POI Category"].str.replace("poi_", "").str.title()
+        fig_poi = px.bar(
+            poi_melt,
+            x="stop_name", y="Score", color="POI Category",
+            barmode="stack",
+            title="Cumulative POI Proximity Score by Stop",
+            labels={"stop_name": "Stop", "Score": "Proximity Score (normalised)"},
+            color_discrete_sequence=list(_poi_cat_colors.values()),
+        )
+        fig_poi.update_layout(
+            xaxis_tickangle=-45,
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(t=40, b=80),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        )
+        st.plotly_chart(fig_poi, use_container_width=True)
+
     # ML section
     st.markdown("---")
     st.markdown("### 🤖 ML Demand Prediction")
+    st.markdown(
+        '<div class="onboard-card">'
+        "The XGBoost model is trained on <b>time features</b> (hour, day, month, weekend), "
+        "<b>lag features</b> (demand 1 h, 2 h, 3 h, and 24 h ago), "
+        "<b>SMHI weather features</b> (temperature, precipitation, wind, humidity), and "
+        "<b>POI proximity scores</b> (office, university, hospital, shopping, tourist, transit hub). "
+        "Enter values below to generate a demand forecast."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     with st.spinner("Training XGBoost model…"):
         model, metrics, feat_cols = get_trained_model(n_zones, n_hours)
@@ -681,21 +1087,82 @@ with tab2:
     m4.metric("Features",  len(feat_cols))
 
     st.markdown("#### 🔮 Demand Prediction")
-    p1, p2, p3, p4 = st.columns(4)
-    with p1: pred_hour    = st.number_input("Hour (0–23)",         0, 23,  8)
-    with p2: pred_dow     = st.number_input("Day of Week (0=Mon)", 0,  6,  1)
-    with p3: pred_month   = st.number_input("Month (1–12)",        1, 12,  3)
-    with p4: pred_weekend = st.selectbox("Weekend?", [0, 1], index=0)
+
+    with st.expander("⏰ Time & Lag features", expanded=True):
+        p1, p2, p3, p4 = st.columns(4)
+        with p1: pred_hour    = st.number_input("Hour (0–23)",         0, 23,  8,  key="pred_hour")
+        with p2: pred_dow     = st.number_input("Day of Week (0=Mon)", 0,  6,  1,  key="pred_dow")
+        with p3: pred_month   = st.number_input("Month (1–12)",        1, 12,  3,  key="pred_month")
+        with p4: pred_weekend = st.selectbox("Weekend?", [0, 1], index=0, key="pred_we")
+
+        l1, l2, l3, l4 = st.columns(4)
+        with l1: pred_lag1  = st.number_input("Demand t-1 (pax)",  0, 1000, 120, key="lag1")
+        with l2: pred_lag2  = st.number_input("Demand t-2 (pax)",  0, 1000, 115, key="lag2")
+        with l3: pred_lag3  = st.number_input("Demand t-3 (pax)",  0, 1000, 110, key="lag3")
+        with l4: pred_lag24 = st.number_input("Demand t-24 (pax)", 0, 1000, 125, key="lag24")
+
+    with st.expander("🌦️ SMHI Weather features", expanded=True):
+        wf1, wf2, wf3 = st.columns(3)
+        with wf1:
+            pred_temp  = st.slider("Temperature (°C)", -20.0, 35.0, 10.0, 0.5, key="pred_temp")
+            pred_rain  = st.slider("Precipitation (mm)", 0.0, 20.0, 0.0, 0.1, key="pred_rain")
+        with wf2:
+            pred_wind  = st.slider("Wind speed (m/s)", 0.0, 25.0, 3.0, 0.5, key="pred_wind")
+            pred_humid = st.slider("Relative Humidity (%)", 30, 100, 70, key="pred_humid")
+        with wf3:
+            pred_israiny = int(pred_rain > 0.1)
+            st.metric("🌧️ Is Rainy?", "Yes" if pred_israiny else "No")
+            # Compute weather factor from inputs
+            cold_b = max(0, min(0.2, (10 - pred_temp) / 10 * 0.1))
+            rain_b = 0.15 if pred_rain > 0.1 else 0.0
+            wind_b = 0.05 if pred_wind > 8 else 0.0
+            heat_p = -0.05 if pred_temp > 25 else 0.0
+            pred_wfactor = round(min(1.4, max(0.5, 1.0 + cold_b + rain_b + wind_b + heat_p)), 4)
+            st.metric("📈 Demand Factor", pred_wfactor)
+
+    with st.expander("📍 POI proximity features", expanded=True):
+        pp1, pp2, pp3 = st.columns(3)
+        with pp1:
+            pred_poi_office  = st.slider("Office score",      0.0, 1.0, 0.5, 0.05, key="poi_off")
+            pred_poi_uni     = st.slider("University score",  0.0, 1.0, 0.3, 0.05, key="poi_uni")
+        with pp2:
+            pred_poi_hosp    = st.slider("Hospital score",    0.0, 1.0, 0.2, 0.05, key="poi_hosp")
+            pred_poi_shop    = st.slider("Shopping score",    0.0, 1.0, 0.4, 0.05, key="poi_shop")
+        with pp3:
+            pred_poi_tourist = st.slider("Tourist score",     0.0, 1.0, 0.1, 0.05, key="poi_tour")
+            pred_poi_hub     = st.slider("Transit hub score", 0.0, 1.0, 0.6, 0.05, key="poi_hub")
 
     if st.button("🔮 Predict", type="primary"):
         input_df = pd.DataFrame([{
-            "hour": pred_hour, "day_of_week": pred_dow,
-            "month": pred_month, "is_weekend": pred_weekend,
-            "demand_lag_1": 120.0, "demand_lag_2": 115.0,
-            "demand_lag_3": 110.0, "demand_lag_24": 125.0,
+            "hour":                    pred_hour,
+            "day_of_week":             pred_dow,
+            "month":                   pred_month,
+            "is_weekend":              pred_weekend,
+            "demand_lag_1":            pred_lag1,
+            "demand_lag_2":            pred_lag2,
+            "demand_lag_3":            pred_lag3,
+            "demand_lag_24":           pred_lag24,
+            "temperature":             pred_temp,
+            "precipitation":           pred_rain,
+            "wind_speed":              pred_wind,
+            "relative_humidity":       pred_humid,
+            "is_rainy":                pred_israiny,
+            "weather_demand_factor":   pred_wfactor,
+            "poi_office":              pred_poi_office,
+            "poi_university":          pred_poi_uni,
+            "poi_hospital":            pred_poi_hosp,
+            "poi_shopping":            pred_poi_shop,
+            "poi_tourist":             pred_poi_tourist,
+            "poi_transit_hub":         pred_poi_hub,
         }])
         prediction = model.predict(input_df)[0]
-        st.success(f"🎯 Predicted Demand: **{prediction:.0f} passengers**")
+        weather_note = "☔ rainy, " if pred_israiny else ""
+        poi_note     = "near transit hub, " if pred_poi_hub > 0.7 else ""
+        st.success(
+            f"🎯 Predicted Demand: **{prediction:.0f} passengers**  \n"
+            f"*Context: hour {pred_hour:02d}:00 · {weather_note}{poi_note}"
+            f"weather factor {pred_wfactor}*"
+        )
 
 # ══════════════════════════════════════════════
 # Tab 3 – Route Planner
@@ -953,7 +1420,7 @@ st.markdown("---")
 st.markdown(
     '<div style="text-align:center;color:#aaa;font-size:0.78rem;padding:0.4rem 0">'
     "🚇 GeoTrack – Urban Mobility Stockholm &nbsp;·&nbsp; "
-    "Streamlit · Folium · Plotly · XGBoost &nbsp;·&nbsp; "
+    "Streamlit · Folium · Plotly · XGBoost · SMHI Weather · Stockholm POIs &nbsp;·&nbsp; "
     "<i>All data is synthetic and for demonstration purposes only.</i>"
     "</div>",
     unsafe_allow_html=True,
