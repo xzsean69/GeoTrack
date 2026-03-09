@@ -29,7 +29,7 @@ from src.ml.demand_predictor import (
 from src.geospatial.geo_processor import create_grid_zones, haversine_distance
 from src.network.graph_builder import build_transit_graph, get_network_stats, compute_shortest_path
 from src.optimization.route_optimizer import identify_congested_edges
-from src.data.smhi_weather import generate_synthetic_weather
+from src.data.smhi_weather import generate_synthetic_weather, load_real_weather
 from src.data.poi_data import get_poi_dataframe, add_poi_features, compute_poi_scores
 
 # ──────────────────────────────────────────────
@@ -238,11 +238,11 @@ with st.sidebar:
     with st.expander("📊 Simulation", expanded=True):
         n_zones = st.slider(
             "Number of Stops", 5, 30, 15,
-            help="Total number of transit stops in the simulated Stockholm network",
+            help="Number of real SL metro stations included in the network view",
         )
         n_hours = st.slider(
-            "Simulation Hours", 24, 336, 168,
-            help="Length of the synthetic demand history used for ML training (1 week = 168 h)",
+            "Training Window (hours)", 24, 336, 168,
+            help="How many hours of real SMHI weather history to use for ML training (1 week = 168 h)",
         )
         congestion_threshold = st.slider(
             "Congestion Threshold (pax/hr)", 100, 2000, 500,
@@ -253,7 +253,7 @@ with st.sidebar:
     st.markdown(
         "<small>🚇 <b>GeoTrack – Urban Mobility Stockholm</b><br>"
         "Built with Streamlit · Folium · Plotly · XGBoost<br>"
-        "<i>All data is synthetic and for demonstration only.</i></small>",
+        "<i>Weather: SMHI Open Data API · Network: SL T-bana</i></small>",
         unsafe_allow_html=True,
     )
 
@@ -262,8 +262,14 @@ with st.sidebar:
 # ──────────────────────────────────────────────
 @st.cache_data
 def get_weather_data(n_hours):
-    """Return synthetic SMHI-style weather data for the simulation period."""
-    return generate_synthetic_weather(n_hours=n_hours)
+    """
+    Return real SMHI hourly weather data for Stockholm.
+
+    Fetches temperature, precipitation, wind speed and relative humidity from
+    the SMHI Open Data API (station 98210 – Observatorielunden, Stockholm).
+    Falls back to synthetic data automatically if the API is unreachable.
+    """
+    return load_real_weather(n_hours=n_hours, synthetic_n_hours=n_hours)
 
 
 @st.cache_data
@@ -285,43 +291,31 @@ def get_trained_model(n_zones, n_hours):
 
 @st.cache_data
 def get_stops_df(n_zones):
-    """Generate realistic Stockholm stop locations."""
-    center_lat, center_lon = 59.3293, 18.0686
-    np.random.seed(42)
+    """
+    Return the first ``n_zones`` unique SL metro stations as a stops DataFrame.
 
-    landmarks = [
-        ("T-Centralen",  59.3310, 18.0590),
-        ("Gamla Stan",   59.3250, 18.0710),
-        ("Södermalm",    59.3150, 18.0720),
-        ("Östermalm",    59.3370, 18.0890),
-        ("Kungsholmen",  59.3340, 18.0280),
-        ("Djurgården",   59.3260, 18.1150),
-        ("Norrmalm",     59.3380, 18.0550),
-        ("Vasastan",     59.3450, 18.0520),
-        ("Hornstull",    59.3160, 18.0340),
-        ("Slussen",      59.3200, 18.0720),
+    Stations are drawn from the real SL T-bana (metro) network data
+    (``_SL_METRO_LINES``) that already contains accurate geographic coordinates
+    for every station.  Duplicate station names that appear on multiple lines
+    are deduplicated so each physical location appears only once.
+    """
+    seen: dict[str, dict[str, object]] = {}
+    for line_data in _SL_METRO_LINES.values():
+        for name, lat, lon in line_data["stations"]:
+            if name not in seen:
+                seen[name] = {"stop_name": name, "stop_lat": lat, "stop_lon": lon}
+
+    stations = list(seen.values())[:n_zones]
+
+    stops = [
+        {
+            "stop_id":   f"S{i}",
+            "stop_name": s["stop_name"],
+            "stop_lat":  s["stop_lat"],
+            "stop_lon":  s["stop_lon"],
+        }
+        for i, s in enumerate(stations)
     ]
-
-    stops = []
-    for i in range(n_zones):
-        if i < len(landmarks):
-            name, lat, lon = landmarks[i]
-            stops.append({
-                "stop_id":   f"S{i}",
-                "stop_name": name,
-                "stop_lat":  lat + np.random.uniform(-0.002, 0.002),
-                "stop_lon":  lon + np.random.uniform(-0.002, 0.002),
-            })
-        else:
-            angle  = (i / n_zones) * 2 * np.pi
-            radius = np.random.uniform(0.01, 0.04)
-            stops.append({
-                "stop_id":   f"S{i}",
-                "stop_name": f"Station {i}",
-                "stop_lat":  center_lat + radius * np.cos(angle) + np.random.uniform(-0.005, 0.005),
-                "stop_lon":  center_lon + radius * np.sin(angle) * 1.5 + np.random.uniform(-0.005, 0.005),
-            })
-
     return pd.DataFrame(stops)
 
 
@@ -864,8 +858,9 @@ st.markdown("""
     Congestion detection
   </div>
   <div class="tagline">
-    Explore the simulated Stockholm transit network: visualise stops &amp; routes on a live map,
-    view the demand-zone grid, predict demand with ML (weather + POI features),
+    Real-world Stockholm transit network: weather from <b>SMHI Open Data API</b> ·
+    stations from <b>SL T-bana</b> · demand model trained on real-world features.
+    Visualise stops &amp; routes, view the demand-zone grid, predict demand with ML,
     plan optimal journeys, and identify congested segments.
   </div>
 </div>
@@ -1379,10 +1374,10 @@ with tab2:
     st.markdown("### 📊 Passenger Demand Analytics")
     st.markdown(
         '<div class="onboard-card">'
-        "📌 <b>How to use this tab:</b> Explore synthetic passenger demand generated for "
-        "the simulated network, modulated by <b>SMHI weather</b> and <b>POI proximity</b>. "
+        "📌 <b>How to use this tab:</b> Explore passenger demand modulated by "
+        "<b>real SMHI weather</b> (fetched from the SMHI Open Data API) and <b>POI proximity</b>. "
         "Charts update automatically when you change the "
-        "<b>Number of Stops</b> or <b>Simulation Hours</b> sliders in the sidebar. "
+        "<b>Number of Stops</b> or <b>Training Window</b> sliders in the sidebar. "
         "Scroll down to use the <b>ML Demand Predictor</b> – enter time, weather, and POI "
         "context and click <em>Predict</em> to get a forecast."
         "</div>",
@@ -1460,8 +1455,8 @@ with tab2:
     st.markdown("### 🌦️ SMHI Weather Influence on Demand")
     st.markdown(
         '<div class="onboard-card">'
-        "Weather data sourced from the <b>SMHI (Swedish Meteorological and "
-        "Hydrological Institute)</b> open data API. "
+        "Weather data fetched directly from the <b>SMHI (Swedish Meteorological and "
+        "Hydrological Institute)</b> Open Data API · station 98210 (Observatorielunden, Stockholm). "
         "Cold temperatures, rain, and strong wind all increase transit demand "
         "(more people choose public transport over walking/cycling). "
         "The <em>weather demand factor</em> is a composite multiplier applied "
@@ -1652,8 +1647,9 @@ with tab2:
         '<div class="onboard-card">'
         "The XGBoost model is trained on <b>time features</b> (hour, day, month, weekend), "
         "<b>lag features</b> (demand 1 h, 2 h, 3 h, and 24 h ago), "
-        "<b>SMHI weather features</b> (temperature, precipitation, wind, humidity), and "
-        "<b>POI proximity scores</b> (office, university, hospital, shopping, tourist, transit hub). "
+        "<b>real SMHI weather features</b> (temperature, precipitation, wind, humidity), and "
+        "<b>POI proximity scores</b> (office, university, hospital, shopping, tourist, transit hub) "
+        "computed from the real SL metro station locations. "
         "Enter values below to generate a demand forecast."
         "</div>",
         unsafe_allow_html=True,
@@ -1916,8 +1912,8 @@ with tab4:
     st.markdown("### 📈 Network Statistics")
     st.markdown(
         '<div class="onboard-card">'
-        "📌 <b>How to use this tab:</b> View graph-level metrics for the simulated "
-        "transit network. The <em>Stop Connectivity Distribution</em> histogram shows "
+        "📌 <b>How to use this tab:</b> View graph-level metrics for the real "
+        "SL metro transit network. The <em>Stop Connectivity Distribution</em> histogram shows "
         "how many connections each stop has. The <em>Network Graph</em> plots each stop "
         "geographically – larger, darker nodes have more connections. "
         "Use the slider in the sidebar to change the number of stops and see how the "
@@ -2002,8 +1998,7 @@ st.markdown("---")
 st.markdown(
     '<div style="text-align:center;color:#aaa;font-size:0.78rem;padding:0.4rem 0">'
     "🚇 GeoTrack – Urban Mobility Stockholm &nbsp;·&nbsp; "
-    "Streamlit · Folium · Plotly · XGBoost · SMHI Weather · Stockholm POIs &nbsp;·&nbsp; "
-    "<i>All data is synthetic and for demonstration purposes only.</i>"
+    "Streamlit · Folium · Plotly · XGBoost · SMHI Open Data · SL T-bana · Stockholm POIs"
     "</div>",
     unsafe_allow_html=True,
 )

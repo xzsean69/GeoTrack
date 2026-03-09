@@ -1,12 +1,13 @@
 """
 SMHI Weather data module for Stockholm.
 
-Provides synthetic hourly weather observations that mirror the structure of
-data returned by the SMHI Open Data API
+Provides real hourly weather observations from the SMHI Open Data API
 (https://opendata-download-metobs.smhi.se/api/).
 
-In a production deployment replace ``generate_synthetic_weather`` with a call
-to ``fetch_smhi_weather`` which queries the real SMHI REST endpoint.
+The primary entry point is ``load_real_weather`` which fetches all four
+meteorological parameters in one call and returns a ready-to-use DataFrame.
+``generate_synthetic_weather`` is retained as a fallback for offline / test
+environments.
 
 Columns produced
 ----------------
@@ -22,10 +23,13 @@ weather_demand_factor : composite multiplier (0.5 – 1.4) used to scale
 
 from __future__ import annotations
 
+import logging
 import numpy as np
 import pandas as pd
 import requests
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 # ─── Stockholm bounding-box centre ───────────────────────────────────────────
@@ -177,3 +181,116 @@ def generate_synthetic_weather(
         "is_rainy":              (precipitation > 0.1).astype(int),
         "weather_demand_factor": np.round(weather_demand_factor, 4),
     })
+
+
+def _compute_demand_factor(
+    temperature: "pd.Series",
+    precipitation: "pd.Series",
+    wind_speed: "pd.Series",
+) -> "pd.Series":
+    """
+    Compute the composite weather demand factor from raw observations.
+
+    Replicates the same formula used in ``generate_synthetic_weather`` so
+    that real and synthetic data produce comparable multipliers.
+    """
+    cold_boost = ((10.0 - temperature) / 10.0 * 0.1).clip(0.0, 0.2)
+    rain_boost = (precipitation > 0.1).astype(float) * 0.15
+    wind_boost = (wind_speed > 8.0).astype(float) * 0.05
+    heat_penalty = (temperature > 25.0).astype(float) * (-0.05)
+    return (1.0 + cold_boost + rain_boost + wind_boost + heat_penalty).clip(0.5, 1.4)
+
+
+def load_real_weather(
+    station_id: int = _SMHI_STATION_ID,
+    period: str = "latest-months",
+    n_hours: Optional[int] = None,
+    fallback_to_synthetic: bool = True,
+    synthetic_n_hours: int = 168,
+) -> pd.DataFrame:
+    """
+    Fetch real hourly weather data from the SMHI Open Data API and return a
+    DataFrame in the same format as ``generate_synthetic_weather``.
+
+    All four meteorological parameters (temperature, precipitation, wind
+    speed, relative humidity) are fetched independently and then joined on
+    the rounded-to-hour UTC timestamp.
+
+    Parameters
+    ----------
+    station_id : int
+        SMHI weather station (default: Observatorielunden, Stockholm, 98210).
+    period : str
+        SMHI period identifier – 'latest-months' returns the last ~3 months.
+    n_hours : int, optional
+        If given, only the most-recent ``n_hours`` rows are returned.
+    fallback_to_synthetic : bool
+        When *True* (default) a ``requests.RequestException`` or a merge
+        that yields no rows silently falls back to ``generate_synthetic_weather``.
+        Set to *False* to let network errors propagate to the caller.
+    synthetic_n_hours : int
+        Number of hours to generate when falling back to synthetic data.
+
+    Returns
+    -------
+    pd.DataFrame with columns:
+        timestamp, temperature, precipitation, wind_speed,
+        relative_humidity, is_rainy, weather_demand_factor
+    """
+    try:
+        raw_temp   = fetch_smhi_weather(_SMHI_PARAMS["temperature"],        station_id, period)
+        raw_precip = fetch_smhi_weather(_SMHI_PARAMS["precipitation"],      station_id, period)
+        raw_wind   = fetch_smhi_weather(_SMHI_PARAMS["wind_speed"],         station_id, period)
+        raw_humid  = fetch_smhi_weather(_SMHI_PARAMS["relative_humidity"],  station_id, period)
+
+        # Rename the generic 'value' column to the parameter name
+        raw_temp   = raw_temp.rename(columns={"value": "temperature"})
+        raw_precip = raw_precip.rename(columns={"value": "precipitation"})
+        raw_wind   = raw_wind.rename(columns={"value": "wind_speed"})
+        raw_humid  = raw_humid.rename(columns={"value": "relative_humidity"})
+
+        # Round timestamps to the hour so the four series align correctly
+        for frame in (raw_temp, raw_precip, raw_wind, raw_humid):
+            frame["timestamp"] = pd.to_datetime(frame["timestamp"]).dt.floor("h")
+
+        df = (
+            raw_temp
+            .merge(raw_precip, on="timestamp", how="inner")
+            .merge(raw_wind,   on="timestamp", how="inner")
+            .merge(raw_humid,  on="timestamp", how="inner")
+        )
+
+        if df.empty:
+            raise ValueError("SMHI merge produced an empty DataFrame – no overlapping timestamps.")
+
+        # Deduplicate and sort chronologically
+        df = df.drop_duplicates("timestamp").sort_values("timestamp").reset_index(drop=True)
+
+        # Clip to physically plausible ranges
+        df["temperature"]      = df["temperature"].clip(-40.0,  45.0).round(1)
+        df["precipitation"]    = df["precipitation"].clip(0.0,  50.0).round(2)
+        df["wind_speed"]       = df["wind_speed"].clip(0.0,     50.0).round(1)
+        df["relative_humidity"] = df["relative_humidity"].clip(0.0, 100.0).round(1)
+
+        # Derived columns
+        df["is_rainy"] = (df["precipitation"] > 0.1).astype(int)
+        df["weather_demand_factor"] = _compute_demand_factor(
+            df["temperature"], df["precipitation"], df["wind_speed"]
+        ).round(4)
+
+        # Optionally limit to the most-recent n_hours
+        if n_hours and len(df) > n_hours:
+            df = df.tail(n_hours).reset_index(drop=True)
+
+        return df[["timestamp", "temperature", "precipitation", "wind_speed",
+                   "relative_humidity", "is_rainy", "weather_demand_factor"]]
+
+    except Exception as exc:
+        if fallback_to_synthetic:
+            logger.warning(
+                "Failed to fetch real SMHI weather data (station %s, period %s): %s. "
+                "Falling back to synthetic data.",
+                station_id, period, exc,
+            )
+            return generate_synthetic_weather(n_hours=synthetic_n_hours)
+        raise
