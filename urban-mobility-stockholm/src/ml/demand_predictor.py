@@ -99,9 +99,10 @@ def engineer_features(
     for cat in ["office", "university", "hospital", "shopping", "tourist", "transit_hub"]:
         col = f"poi_{cat}"
         if poi_scores:
-            df[col] = df["zone_id"].map(
-                lambda z, c=cat: poi_scores.get(z, {}).get(c, 0.0)
-            )
+            # Pre-compute the per-zone mapping for this category to avoid
+            # repeated dict lookups inside map()
+            cat_map = {z: scores.get(cat, 0.0) for z, scores in poi_scores.items()}
+            df[col] = df["zone_id"].map(cat_map).fillna(0.0)
         else:
             df[col] = 0.0
 

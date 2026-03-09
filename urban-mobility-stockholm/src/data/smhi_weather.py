@@ -16,7 +16,7 @@ precipitation   : mm (hourly)
 wind_speed      : m/s
 relative_humidity : %
 is_rainy        : 1 if precipitation > 0.1 mm else 0
-weather_demand_factor : composite multiplier (0.5 – 1.2) used to scale
+weather_demand_factor : composite multiplier (0.5 – 1.4) used to scale
                         passenger demand (rain + cold → more transit demand)
 """
 

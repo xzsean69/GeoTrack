@@ -574,7 +574,8 @@ with tab1:
             zone_demand.get(f"zone_{i}", 0.0) for i in range(len(stops_gdf))
         ]
         joined = gpd.sjoin(stops_gdf, grid_gdf, how="left", predicate="within")
-        # The sjoin result has 'zone_id' from the right GDF (no suffix since no conflict)
+        # geopandas renames the right-side 'zone_id' to 'zone_id_right' only when
+        # there is a naming conflict; use whichever column name is present.
         zone_id_col = "zone_id" if "zone_id" in joined.columns else "zone_id_right"
         cell_demand = joined.groupby(zone_id_col)["demand_val"].mean()
         grid_gdf["demand"] = grid_gdf["zone_id"].map(cell_demand).fillna(0)
