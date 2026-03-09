@@ -56,13 +56,17 @@ for _key, _val in _SESSION_DEFAULTS.items():
         st.session_state[_key] = _val
 
 # ──────────────────────────────────────────────
-# CSS – polished, clean design
+# CSS – polished, clean design with dark mode support
 # ──────────────────────────────────────────────
 st.markdown("""
 <style>
     /* Reduce default top padding */
     .block-container { padding-top: 1rem !important; }
 
+    /* ═══════════════════════════════════════════
+       LIGHT MODE (default)
+       ═══════════════════════════════════════════ */
+    
     /* App header banner */
     .app-header {
         background: linear-gradient(135deg, #1a2f4e 0%, #2563a8 100%);
@@ -71,9 +75,9 @@ st.markdown("""
         border-radius: 12px;
         margin-bottom: 1.2rem;
     }
-    .app-header .title    { font-size: 1.55rem; font-weight: 700; margin: 0; }
-    .app-header .subtitle { font-size: 0.83rem; opacity: 0.82; margin-top: 0.25rem; }
-    .app-header .tagline  { font-size: 0.78rem; opacity: 0.68; margin-top: 0.15rem; }
+    .app-header .title    { font-size: 1.55rem; font-weight: 700; margin: 0; color: white; }
+    .app-header .subtitle { font-size: 0.83rem; opacity: 0.82; margin-top: 0.25rem; color: white; }
+    .app-header .tagline  { font-size: 0.78rem; opacity: 0.68; margin-top: 0.15rem; color: white; }
 
     /* Onboarding info card */
     .onboard-card {
@@ -84,6 +88,7 @@ st.markdown("""
         font-size: 0.86rem;
         line-height: 1.7;
         margin-bottom: 0.8rem;
+        color: #1a2f4e;
     }
     .onboard-card b { color: #1a2f4e; }
 
@@ -101,6 +106,7 @@ st.markdown("""
         border-radius: 7px;
         font-size: 0.87rem;
         font-weight: 500;
+        color: #1a2f4e;
     }
     .stTabs [aria-selected="true"] {
         background: #1a2f4e !important;
@@ -108,7 +114,7 @@ st.markdown("""
     }
 
     /* Section headings */
-    h3 { color: #1a2f4e !important; margin-top: 0.6rem !important; }
+    h3 { margin-top: 0.6rem !important; }
 
     /* Route step card */
     .route-step {
@@ -118,6 +124,7 @@ st.markdown("""
         border-radius: 0 6px 6px 0;
         margin: 0.25rem 0;
         font-size: 0.87rem;
+        color: #1a2f4e;
     }
 
     /* Legend card */
@@ -128,6 +135,75 @@ st.markdown("""
         padding: 0.75rem;
         font-size: 0.83rem;
         line-height: 1.8;
+        color: #1a2f4e;
+    }
+
+    /* ═══════════════════════════════════════════
+       DARK MODE – Override styles for dark theme
+       ═══════════════════════════════════════════ */
+    @media (prefers-color-scheme: dark) {
+        .onboard-card {
+            background: #1e2a3a;
+            border: 1px solid #3d5a80;
+            color: #e0e6ed;
+        }
+        .onboard-card b { color: #7eb8ff; }
+
+        .stTabs [data-baseweb="tab-list"] {
+            background: #1e2a3a;
+        }
+        .stTabs [data-baseweb="tab"] {
+            color: #e0e6ed;
+        }
+        .stTabs [aria-selected="true"] {
+            background: #2563a8 !important;
+            color: white !important;
+        }
+
+        .route-step {
+            background: #1e2a3a;
+            border-left-color: #7eb8ff;
+            color: #e0e6ed;
+        }
+
+        .legend-card {
+            background: #1e2a3a;
+            border: 1px solid #3d5a80;
+            color: #e0e6ed;
+        }
+    }
+
+    /* Streamlit dark theme class-based overrides */
+    [data-theme="dark"] .onboard-card,
+    .stApp[data-theme="dark"] .onboard-card {
+        background: #1e2a3a;
+        border: 1px solid #3d5a80;
+        color: #e0e6ed;
+    }
+    [data-theme="dark"] .onboard-card b,
+    .stApp[data-theme="dark"] .onboard-card b { color: #7eb8ff; }
+
+    [data-theme="dark"] .stTabs [data-baseweb="tab-list"],
+    .stApp[data-theme="dark"] .stTabs [data-baseweb="tab-list"] {
+        background: #1e2a3a;
+    }
+    [data-theme="dark"] .stTabs [data-baseweb="tab"],
+    .stApp[data-theme="dark"] .stTabs [data-baseweb="tab"] {
+        color: #e0e6ed;
+    }
+
+    [data-theme="dark"] .route-step,
+    .stApp[data-theme="dark"] .route-step {
+        background: #1e2a3a;
+        border-left-color: #7eb8ff;
+        color: #e0e6ed;
+    }
+
+    [data-theme="dark"] .legend-card,
+    .stApp[data-theme="dark"] .legend-card {
+        background: #1e2a3a;
+        border: 1px solid #3d5a80;
+        color: #e0e6ed;
     }
 </style>
 """, unsafe_allow_html=True)
