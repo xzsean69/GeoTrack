@@ -328,6 +328,197 @@ _LINE_COLORS = [
     "#457b9d",  # Steel-blue
 ]
 
+# ──────────────────────────────────────────────
+# SL (Stockholms Lokaltrafik) Metro – real station data
+# ──────────────────────────────────────────────
+# Approximate geographic coordinates for each station on each line.
+# Transfer stations (shared by multiple lines) use the same coordinates.
+_SL_METRO_LINES: dict = {
+    "T10 · Blå linje": {
+        "color": "#0052A3",
+        "stations": [
+            ("Hjulsta",            59.3667, 17.8707),
+            ("Vällingby",          59.3621, 17.8706),
+            ("Råcksta",            59.3610, 17.8921),
+            ("Skälby",             59.3594, 17.9080),
+            ("Islandstorget",      59.3494, 17.9182),
+            ("Ängbyplan",          59.3455, 17.9233),
+            ("Åkeshov",            59.3408, 17.9316),
+            ("Brommaplan",         59.3362, 17.9393),
+            ("Thorildsplan",       59.3331, 18.0147),
+            ("Fridhemsplan",       59.3322, 18.0278),
+            ("St. Eriksplan",      59.3370, 18.0229),
+            ("Odenplan",           59.3414, 18.0276),
+            ("Rådhuset",           59.3326, 18.0441),
+            ("T-Centralen",        59.3310, 18.0590),
+            ("Kungsträdgården",    59.3321, 18.0717),
+        ],
+    },
+    "T11 · Blå linje": {
+        "color": "#0052A3",
+        "stations": [
+            ("Akalla",             59.4157, 17.9274),
+            ("Husby",              59.4117, 17.9387),
+            ("Kista",              59.4033, 17.9507),
+            ("Hallonbergen",       59.3740, 17.9620),
+            ("Näckrosen",          59.3659, 17.9864),
+            ("Solna centrum",      59.3604, 18.0014),
+            ("Västra skogen",      59.3502, 18.0025),
+            ("Stadshagen",         59.3362, 18.0090),
+            ("Thorildsplan",       59.3331, 18.0147),
+            ("Fridhemsplan",       59.3322, 18.0278),
+            ("St. Eriksplan",      59.3370, 18.0229),
+            ("Odenplan",           59.3414, 18.0276),
+            ("Rådhuset",           59.3326, 18.0441),
+            ("T-Centralen",        59.3310, 18.0590),
+            ("Kungsträdgården",    59.3321, 18.0717),
+        ],
+    },
+    "T13 · Röd linje": {
+        "color": "#E8212F",
+        "stations": [
+            ("Norsborg",           59.2577, 17.8313),
+            ("Alby",               59.2604, 17.8483),
+            ("Hallunda",           59.2667, 17.8651),
+            ("Fittja",             59.2714, 17.8779),
+            ("Masmo",              59.2784, 17.8878),
+            ("Vårby gård",         59.2824, 17.8993),
+            ("Vårberg",            59.2852, 17.9097),
+            ("Skärholmen",         59.2773, 17.9230),
+            ("Sätra",              59.2942, 17.9450),
+            ("Bredäng",            59.2987, 17.9582),
+            ("Mälarhöjden",        59.3014, 17.9716),
+            ("Axelsberg",          59.3036, 17.9861),
+            ("Örnsberg",           59.3068, 18.0016),
+            ("Liljeholmen",        59.3108, 18.0195),
+            ("Hornstull",          59.3161, 18.0342),
+            ("Zinkensdamm",        59.3172, 18.0462),
+            ("Mariatorget",        59.3183, 18.0535),
+            ("Slussen",            59.3196, 18.0715),
+            ("Gamla stan",         59.3237, 18.0686),
+            ("T-Centralen",        59.3310, 18.0590),
+            ("Östermalmstorg",     59.3354, 18.0750),
+            ("Karlaplan",          59.3401, 18.0844),
+            ("Gärdet",             59.3423, 18.1010),
+            ("Ropsten",            59.3578, 18.1085),
+        ],
+    },
+    "T14 · Röd linje": {
+        "color": "#E8212F",
+        "stations": [
+            ("Fruängen",           59.2991, 17.9771),
+            ("Västertorp",         59.3039, 17.9900),
+            ("Hägerstensåsen",     59.3068, 18.0033),
+            ("Telefonplan",        59.3099, 18.0092),
+            ("Midsommarkransen",   59.3132, 18.0194),
+            ("Liljeholmen",        59.3108, 18.0195),
+            ("Hornstull",          59.3161, 18.0342),
+            ("Zinkensdamm",        59.3172, 18.0462),
+            ("Mariatorget",        59.3183, 18.0535),
+            ("Slussen",            59.3196, 18.0715),
+            ("Gamla stan",         59.3237, 18.0686),
+            ("T-Centralen",        59.3310, 18.0590),
+            ("Östermalmstorg",     59.3354, 18.0750),
+            ("Stadion",            59.3444, 18.0820),
+            ("Tekniska Högskolan", 59.3471, 18.0716),
+            ("Universitetet",      59.3660, 18.0574),
+            ("Danderyds sjukhus",  59.3930, 18.0369),
+            ("Mörby centrum",      59.4010, 18.0311),
+        ],
+    },
+    "T17 · Grön linje": {
+        "color": "#00A650",
+        "stations": [
+            ("Hässelby strand",    59.3630, 17.8283),
+            ("Hässelby gård",      59.3634, 17.8467),
+            ("Johannelund",        59.3534, 17.8700),
+            ("Vällingby",          59.3621, 17.8706),
+            ("Råcksta",            59.3610, 17.8921),
+            ("Skälby",             59.3594, 17.9080),
+            ("Islandstorget",      59.3494, 17.9182),
+            ("Ängbyplan",          59.3455, 17.9233),
+            ("Åkeshov",            59.3408, 17.9316),
+            ("Brommaplan",         59.3362, 17.9393),
+            ("Abrahamsberg",       59.3337, 17.9624),
+            ("Stora mossen",       59.3328, 17.9783),
+            ("Alvik",              59.3318, 17.9894),
+            ("Kristineberg",       59.3340, 18.0060),
+            ("Thorildsplan",       59.3331, 18.0147),
+            ("T-Centralen",        59.3310, 18.0590),
+            ("Gamla stan",         59.3237, 18.0686),
+            ("Slussen",            59.3196, 18.0715),
+            ("Skanstull",          59.3106, 18.0727),
+            ("Gullmarsplan",       59.3003, 18.0813),
+            ("Skärmarbrink",       59.2989, 18.0897),
+            ("Globen",             59.2943, 18.0823),
+            ("Enskede gård",       59.2889, 18.0706),
+            ("Sockenplan",         59.2826, 18.0590),
+            ("Stureby",            59.2780, 18.0494),
+            ("Björkhagen",         59.2729, 18.0623),
+            ("Kärrtorp",           59.2685, 18.0737),
+            ("Hagsätra",           59.2643, 18.0329),
+        ],
+    },
+    "T18 · Grön linje": {
+        "color": "#00A650",
+        "stations": [
+            ("Hässelby strand",    59.3630, 17.8283),
+            ("Hässelby gård",      59.3634, 17.8467),
+            ("Johannelund",        59.3534, 17.8700),
+            ("Vällingby",          59.3621, 17.8706),
+            ("Råcksta",            59.3610, 17.8921),
+            ("Skälby",             59.3594, 17.9080),
+            ("Islandstorget",      59.3494, 17.9182),
+            ("Ängbyplan",          59.3455, 17.9233),
+            ("Åkeshov",            59.3408, 17.9316),
+            ("Brommaplan",         59.3362, 17.9393),
+            ("Abrahamsberg",       59.3337, 17.9624),
+            ("Stora mossen",       59.3328, 17.9783),
+            ("Alvik",              59.3318, 17.9894),
+            ("Kristineberg",       59.3340, 18.0060),
+            ("Thorildsplan",       59.3331, 18.0147),
+            ("T-Centralen",        59.3310, 18.0590),
+            ("Gamla stan",         59.3237, 18.0686),
+            ("Slussen",            59.3196, 18.0715),
+            ("Skanstull",          59.3106, 18.0727),
+            ("Gullmarsplan",       59.3003, 18.0813),
+            ("Skärmarbrink",       59.2989, 18.0897),
+            ("Globen",             59.2943, 18.0823),
+            ("Enskede gård",       59.2889, 18.0706),
+            ("Sockenplan",         59.2826, 18.0590),
+            ("Stureby",            59.2780, 18.0494),
+            ("Björkhagen",         59.2729, 18.0623),
+            ("Kärrtorp",           59.2685, 18.0737),
+            ("Farsta strand",      59.2551, 18.1011),
+        ],
+    },
+    "T19 · Grön linje": {
+        "color": "#00A650",
+        "stations": [
+            ("Hässelby strand",    59.3630, 17.8283),
+            ("Hässelby gård",      59.3634, 17.8467),
+            ("Johannelund",        59.3534, 17.8700),
+            ("Vällingby",          59.3621, 17.8706),
+            ("Råcksta",            59.3610, 17.8921),
+            ("Skälby",             59.3594, 17.9080),
+            ("Islandstorget",      59.3494, 17.9182),
+            ("Ängbyplan",          59.3455, 17.9233),
+            ("Åkeshov",            59.3408, 17.9316),
+            ("Brommaplan",         59.3362, 17.9393),
+            ("Abrahamsberg",       59.3337, 17.9624),
+            ("Stora mossen",       59.3328, 17.9783),
+            ("Alvik",              59.3318, 17.9894),
+            ("Kristineberg",       59.3340, 18.0060),
+            ("Thorildsplan",       59.3331, 18.0147),
+            ("T-Centralen",        59.3310, 18.0590),
+            ("Gamla stan",         59.3237, 18.0686),
+            ("Slussen",            59.3196, 18.0715),
+            ("Skanstull",          59.3106, 18.0727),
+            ("Skarpnäck",          59.2742, 18.1406),
+        ],
+    },
+}
+
 
 def create_metro_schematic(stop_times_df: pd.DataFrame, stops_df: pd.DataFrame) -> go.Figure:
     """
@@ -440,6 +631,150 @@ def create_metro_schematic(stop_times_df: pd.DataFrame, stops_df: pd.DataFrame) 
     return fig
 
 
+def create_sl_metro_schematic() -> go.Figure:
+    """
+    Build a schematic Plotly figure that mirrors the SL (Stockholms Lokaltrafik)
+    T-bana (metro) network topology and station names.
+
+    • Uses actual geographic coordinates of each station, which naturally produces
+      the characteristic SL metro shape.
+    • Each line is colour-coded: Blue (#0052A3), Red (#E8212F), Green (#00A650).
+    • Transfer stations (served by ≥ 2 lines) are shown as larger dark-bordered
+      circles to make interchanges immediately visible.
+    • Legend lets the user toggle individual lines on/off.
+    """
+    # Identify transfer stations across all SL lines
+    # Identify transfer stations: only those shared between lines of DIFFERENT colours
+    # (e.g. Blue ↔ Green, Red ↔ Green) — not just between variants of the same line.
+    station_colors: dict = {}
+    for line_data in _SL_METRO_LINES.values():
+        color = line_data["color"]
+        for name, _lat, _lon in line_data["stations"]:
+            station_colors.setdefault(name, set()).add(color)
+    transfers = {s for s, colors in station_colors.items() if len(colors) >= 2}
+
+    fig = go.Figure()
+
+    for line_name, line_data in _SL_METRO_LINES.items():
+        color = line_data["color"]
+        stations = line_data["stations"]
+
+        lons  = [lon  for _, _lat, lon  in stations]
+        lats  = [lat  for _, lat,  _lon in stations]
+        names = [name for name, _, _    in stations]
+
+        # Line trace
+        fig.add_trace(go.Scatter(
+            x=lons, y=lats,
+            mode="lines",
+            line=dict(width=6, color=color),
+            name=line_name,
+            legendgroup=line_name,
+            hoverinfo="none",
+        ))
+
+        reg_idx = [j for j, n in enumerate(names) if n not in transfers]
+        tr_idx  = [j for j, n in enumerate(names) if n in     transfers]
+
+        if reg_idx:
+            fig.add_trace(go.Scatter(
+                x=[lons[j] for j in reg_idx],
+                y=[lats[j] for j in reg_idx],
+                mode="markers+text",
+                marker=dict(size=9, color="white", symbol="circle",
+                            line=dict(color=color, width=2)),
+                text=[names[j] for j in reg_idx],
+                textposition="top center",
+                textfont=dict(size=7, color="#333333"),
+                hovertext=[f"{names[j]}<br><i>{line_name}</i>" for j in reg_idx],
+                hoverinfo="text",
+                showlegend=False,
+                legendgroup=line_name,
+            ))
+
+        if tr_idx:
+            fig.add_trace(go.Scatter(
+                x=[lons[j] for j in tr_idx],
+                y=[lats[j] for j in tr_idx],
+                mode="markers+text",
+                marker=dict(size=15, color="white", symbol="circle",
+                            line=dict(color="#1a2f4e", width=3)),
+                text=[names[j] for j in tr_idx],
+                textposition="top center",
+                textfont=dict(size=8, color="#1a2f4e", family="Arial Black"),
+                hovertext=[f"⇄ {names[j]}<br><i>Transfer station · {line_name}</i>"
+                           for j in tr_idx],
+                hoverinfo="text",
+                showlegend=False,
+                legendgroup=line_name,
+            ))
+
+    fig.update_layout(
+        paper_bgcolor="#f8fafc",
+        plot_bgcolor="#eef2f7",
+        height=600,
+        margin=dict(l=10, r=10, t=55, b=10),
+        legend=dict(
+            title=dict(text="<b>SL Metro Lines</b>", font=dict(size=11)),
+            bgcolor="rgba(255,255,255,0.92)",
+            bordercolor="#d1d5db",
+            borderwidth=1,
+            font=dict(size=10),
+        ),
+        xaxis=dict(visible=False, showgrid=False, zeroline=False),
+        yaxis=dict(visible=False, showgrid=False, zeroline=False,
+                   scaleanchor="x", scaleratio=1.8),
+        title=dict(
+            text="SL T-bana – Metro Schematic  "
+                 "<span style='font-size:11px;color:#888'>"
+                 "(large circles = transfer stations · click legend to toggle lines)</span>",
+            font=dict(size=14, color="#1a2f4e"),
+            x=0.5, xanchor="center",
+        ),
+        hovermode="closest",
+    )
+    return fig
+
+
+@st.cache_data
+def get_sl_station_poi_scores() -> list[dict]:
+    """
+    Return a list of unique SL metro stations with their coordinates and
+    POI proximity scores normalised to [0, 1] across all stations (matching
+    the scale used during model training via ``add_poi_features``).
+    Results are cached across re-renders.
+    """
+    seen: dict = {}
+    for line_name, line_data in _SL_METRO_LINES.items():
+        for name, lat, lon in line_data["stations"]:
+            if name not in seen:
+                scores = compute_poi_scores(lat, lon)
+                seen[name] = {
+                    "name":  name,
+                    "lat":   lat,
+                    "lon":   lon,
+                    "lines": [line_name],
+                    **{f"poi_{k}": v for k, v in scores.items()},
+                }
+            else:
+                if line_name not in seen[name]["lines"]:
+                    seen[name]["lines"].append(line_name)
+
+    stations = list(seen.values())
+
+    # Normalise each POI category to [0, 1] across all stations so the scale
+    # matches the normalised features the model was trained on.
+    poi_cats = ["poi_office", "poi_university", "poi_hospital",
+                "poi_shopping", "poi_tourist", "poi_transit_hub"]
+    for cat in poi_cats:
+        cat_max = max((s[cat] for s in stations), default=0.0)
+        if cat_max > 0:
+            for s in stations:
+                s[cat] = s[cat] / cat_max
+
+    return stations
+
+
 # ──────────────────────────────────────────────
 # App header
 # ──────────────────────────────────────────────
@@ -494,10 +829,13 @@ with tab1:
     st.markdown(
         '<div class="onboard-card">'
         "📌 <b>How to use this tab:</b> Switch between the live geographic map, the "
-        "schematic metro view, and the <b>Grid Demand Zones</b> view using the toggle "
-        "below. The Grid view shows Stockholm divided into a colour-coded grid where "
+        "SL metro schematic, the <b>Grid Demand Zones</b> view, and the new "
+        "<b>Map Prediction</b> view using the toggle below. "
+        "The Grid view shows Stockholm divided into a colour-coded grid where "
         "each cell's colour reflects the aggregated passenger demand – from cool blue "
         "(low demand) through yellow to red (high demand). "
+        "The Map Prediction view uses the XGBoost model to forecast demand at every "
+        "SL metro station across the city map. "
         "Toggle the heatmap and route overlays in the sidebar."
         "</div>",
         unsafe_allow_html=True,
@@ -505,28 +843,34 @@ with tab1:
 
     view_mode = st.radio(
         "Map view",
-        ["📍 Geographic Map", "🚇 Metro Schematic", "🟦 Grid Demand Zones"],
+        ["📍 Geographic Map", "🚇 Metro Schematic", "🟦 Grid Demand Zones", "🗺️ Map Prediction"],
         horizontal=True,
         label_visibility="collapsed",
     )
 
     if view_mode == "🚇 Metro Schematic":
-        # ── Schematic view ──────────────────────
+        # ── SL Schematic view ───────────────────────
         st.caption(
-            "Schematic view · circles = stations · large circles = transfer points · "
+            "SL T-bana schematic · based on Stockholms Lokaltrafik metro network · "
+            "circles = stations · large circles = transfer stations · "
             "click legend items to toggle lines"
         )
-        st.plotly_chart(create_metro_schematic(stop_times, stops_df),
-                        use_container_width=True)
+        st.plotly_chart(create_sl_metro_schematic(), use_container_width=True)
 
-        st.markdown("##### 📋 Line Summary")
-        line_summary = (
-            stop_times.groupby("trip_id")["stop_id"]
-            .nunique()
-            .reset_index()
-            .rename(columns={"trip_id": "Line", "stop_id": "Unique Stops"})
-        )
-        st.dataframe(line_summary, use_container_width=True, hide_index=True)
+        st.markdown("##### 📋 SL Metro Line Summary")
+        line_summary_rows = []
+        for line_name, line_data in _SL_METRO_LINES.items():
+            unique_stations = len({name for name, _, _ in line_data["stations"]})
+            color_hex = line_data["color"]
+            line_summary_rows.append({
+                "Line": line_name,
+                "Colour": color_hex,
+                "Stations": unique_stations,
+                "Terminus A": line_data["stations"][0][0],
+                "Terminus B": line_data["stations"][-1][0],
+            })
+        sl_summary_df = pd.DataFrame(line_summary_rows)
+        st.dataframe(sl_summary_df, use_container_width=True, hide_index=True)
 
     elif view_mode == "🟦 Grid Demand Zones":
         # ── Grid Demand Zones view ────────────────
@@ -697,6 +1041,168 @@ with tab1:
                 xaxis_tickangle=-45,
             )
             st.plotly_chart(fig_grid, use_container_width=True)
+
+    elif view_mode == "🗺️ Map Prediction":
+        # ── Map Prediction view ────────────────────
+        st.markdown("#### 🗺️ Demand Prediction Map – All SL Metro Stations")
+        st.markdown(
+            '<div class="onboard-card">'
+            "The XGBoost demand model predicts passenger demand at <b>every SL metro "
+            "station</b> for the time and weather conditions you select below. "
+            "Stations are colour-coded from <b style='color:#0000cc'>blue</b> (low demand) "
+            "through <b style='color:#e8e800'>yellow</b> to <b style='color:#cc0000'>red</b> "
+            "(peak demand). Hover over a station to see its predicted demand."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        # ── User controls ────────────────────────────
+        mp_col_controls, mp_col_map = st.columns([1, 3])
+
+        with mp_col_controls:
+            st.markdown("##### ⏰ Time")
+            mp_hour    = st.slider("Hour",         0, 23,  8,  key="mp_hour")
+            mp_dow     = st.slider("Day (0=Mon)",  0,  6,  1,  key="mp_dow")
+            mp_month   = st.slider("Month",        1, 12,  6,  key="mp_month")
+            mp_weekend = int(mp_dow >= 5)
+            st.caption(f"Weekend: {'Yes' if mp_weekend else 'No'}")
+
+            st.markdown("##### 🌦️ Weather")
+            mp_temp  = st.slider("Temp (°C)",    -20.0, 35.0, 10.0, 0.5, key="mp_temp")
+            mp_rain  = st.slider("Precip (mm)",    0.0, 20.0,  0.0, 0.1, key="mp_rain")
+            mp_wind  = st.slider("Wind (m/s)",     0.0, 25.0,  3.0, 0.5, key="mp_wind")
+            mp_humid = st.slider("Humidity (%)",    30, 100,    70,       key="mp_humid")
+            mp_israiny  = int(mp_rain > 0.1)
+            _cold_b     = max(0.0, min(0.2, (10.0 - mp_temp) / 10.0 * 0.1))
+            _rain_b     = 0.15 if mp_rain > 0.1 else 0.0
+            _wind_b     = 0.05 if mp_wind > 8.0  else 0.0
+            _heat_p     = -0.05 if mp_temp > 25.0 else 0.0
+            mp_wfactor  = round(min(1.4, max(0.5, 1.0 + _cold_b + _rain_b + _wind_b + _heat_p)), 3)
+            st.metric("Demand factor", mp_wfactor)
+
+        with mp_col_map:
+            with st.spinner("Computing demand predictions for all SL stations…"):
+                _model, _metrics, _feat_cols = get_trained_model(n_zones, n_hours)
+                _avg_demand = float(get_demand_data(n_zones, n_hours)["demand"].mean())
+                _sl_stations = get_sl_station_poi_scores()
+
+                _predictions: list[dict] = []
+                for _stn in _sl_stations:
+                    _input_df = pd.DataFrame([{
+                        "hour":                  mp_hour,
+                        "day_of_week":           mp_dow,
+                        "month":                 mp_month,
+                        "is_weekend":            mp_weekend,
+                        "demand_lag_1":          _avg_demand,
+                        "demand_lag_2":          _avg_demand,
+                        "demand_lag_3":          _avg_demand,
+                        "demand_lag_24":         _avg_demand,
+                        "temperature":           mp_temp,
+                        "precipitation":         mp_rain,
+                        "wind_speed":            mp_wind,
+                        "relative_humidity":     mp_humid,
+                        "is_rainy":              mp_israiny,
+                        "weather_demand_factor": mp_wfactor,
+                        "poi_office":            _stn.get("poi_office",      0.0),
+                        "poi_university":        _stn.get("poi_university",  0.0),
+                        "poi_hospital":          _stn.get("poi_hospital",    0.0),
+                        "poi_shopping":          _stn.get("poi_shopping",    0.0),
+                        "poi_tourist":           _stn.get("poi_tourist",     0.0),
+                        "poi_transit_hub":       _stn.get("poi_transit_hub", 0.0),
+                    }])
+                    _pred = float(_model.predict(_input_df)[0])
+                    _predictions.append({**_stn, "predicted_demand": _pred})
+
+            _pred_min = min(p["predicted_demand"] for p in _predictions)
+            _pred_max = max(p["predicted_demand"] for p in _predictions)
+            _pred_range = max(_pred_max - _pred_min, 1.0)
+
+            def _pred_color(demand: float) -> str:
+                """Map predicted demand to a hex colour (blue → yellow → red)."""
+                norm = (demand - _pred_min) / _pred_range
+                if norm <= 0.5:
+                    t = norm * 2
+                    r = int(t * 255)
+                    g = int(t * 255)
+                    b = int(200 - t * 200)
+                else:
+                    t = (norm - 0.5) * 2
+                    r = 255
+                    g = int(255 - t * 255)
+                    b = 0
+                return f"#{r:02x}{g:02x}{b:02x}"
+
+            # Build Folium map
+            _mp_map = folium.Map(
+                location=[59.3310, 18.0590],
+                zoom_start=11,
+                tiles=get_map_tiles(map_style),
+            )
+
+            # Draw SL metro line segments as light polylines for context
+            for _line_name, _line_data in _SL_METRO_LINES.items():
+                _lc = _line_data["color"]
+                _coords = [(_lat, _lon) for _, _lat, _lon in _line_data["stations"]]
+                folium.PolyLine(
+                    _coords, weight=3, color=_lc, opacity=0.45,
+                    tooltip=_line_name,
+                ).add_to(_mp_map)
+
+            # Add heatmap layer
+            _heat_pts = [
+                [p["lat"], p["lon"], p["predicted_demand"]]
+                for p in _predictions
+            ]
+            HeatMap(
+                _heat_pts, radius=30, blur=20, max_zoom=13,
+                gradient={0.35: "blue", 0.6: "lime", 0.8: "yellow", 1: "red"},
+            ).add_to(_mp_map)
+
+            # Station markers coloured by predicted demand
+            for _p in _predictions:
+                _color = _pred_color(_p["predicted_demand"])
+                _lines_str = " · ".join(_p["lines"])
+                folium.CircleMarker(
+                    location=[_p["lat"], _p["lon"]],
+                    radius=8,
+                    color="#333333",
+                    weight=1,
+                    fill=True,
+                    fill_color=_color,
+                    fill_opacity=0.9,
+                    tooltip=(
+                        f"<b>{_p['name']}</b><br>"
+                        f"Predicted demand: <b>{_p['predicted_demand']:.0f} pax/hr</b><br>"
+                        f"Lines: {_lines_str}"
+                    ),
+                ).add_to(_mp_map)
+
+            st_folium(
+                _mp_map,
+                width=None,
+                height=560,
+                returned_objects=[],
+                key=f"mp_map_{mp_hour}_{mp_dow}_{mp_month}_{mp_temp}_{mp_rain}_{mp_wind}",
+            )
+
+        # Summary table below the map
+        _pred_df = pd.DataFrame([
+            {
+                "Station": p["name"],
+                "Lines":   " · ".join(p["lines"]),
+                "Predicted Demand (pax/hr)": round(p["predicted_demand"], 1),
+            }
+            for p in sorted(_predictions, key=lambda x: -x["predicted_demand"])
+        ])
+        st.markdown("##### 📊 Station Demand Ranking")
+        _p1, _p2, _p3 = st.columns(3)
+        _p1.metric("🏆 Highest demand", _pred_df.iloc[0]["Station"],
+                   f"{_pred_df.iloc[0]['Predicted Demand (pax/hr)']:.0f} pax/hr")
+        _p2.metric("📉 Lowest demand",  _pred_df.iloc[-1]["Station"],
+                   f"{_pred_df.iloc[-1]['Predicted Demand (pax/hr)']:.0f} pax/hr")
+        _p3.metric("📊 Network average",
+                   f"{_pred_df['Predicted Demand (pax/hr)'].mean():.0f} pax/hr")
+        st.dataframe(_pred_df, use_container_width=True, hide_index=True)
 
     else:
         # ── Geographic Folium map ────────────────
